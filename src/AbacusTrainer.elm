@@ -19,6 +19,7 @@ type alias Model =
   , rng  : Generator Int
   , target_number_and_seed : (Int, Seed)
   , ball_locations : List Position
+  , needs_refresh : Bool
   }
 
 
@@ -34,6 +35,7 @@ initial_state =
   , rng = int 0 9
   , target_number_and_seed = (1,  initialSeed 314)
   , ball_locations = resetPositions (List.repeat 10 {x = 0, y = 0})
+  , needs_refresh = False
   }
 
 
@@ -51,6 +53,7 @@ update action current_state =
             generate current_state.rng (snd current_state.target_number_and_seed)
         , user_choice = 0
         , ball_locations = resetPositions current_state.ball_locations
+        , needs_refresh = True
       }
 
     Reset ->
@@ -60,18 +63,23 @@ update action current_state =
       }
 
     ClickedBall index ->
-        if (index == (fst current_state.target_number_and_seed)) then
-          { current_state
-            | user_choice = (index + 1)
-            , score = current_state.score + 1
-            , ball_locations =
-                (List.map shift_ball_left (List.take(index + 1) current_state.ball_locations)) ++ (List.drop (index + 1) current_state.ball_locations)
-          }
+        if ( current_state.needs_refresh == True ) then
+          if (index == (fst current_state.target_number_and_seed) ) then
+            { current_state
+              | user_choice = (index + 1)
+              , score = current_state.score + 1
+              , ball_locations =
+                  (List.map shift_ball_left (List.take(index + 1) current_state.ball_locations)) ++ (List.drop (index + 1) current_state.ball_locations)
+              , needs_refresh = False
+            }
+          else
+            { current_state
+              | user_choice = (index +  1)
+              , score = current_state.score - 1
+            }
         else
-          { current_state
-            | user_choice = (index +  1)
-            , score = current_state.score - 1
-          }
+           current_state
+          
 
 
 resetBallLocation : Int -> Position -> Position

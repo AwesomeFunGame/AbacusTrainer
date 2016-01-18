@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 require('shelljs/global');
+var path = require('path');
 var directories = require('./directories.js');
 
 var currentBranch = exec('git rev-parse --abbrev-ref HEAD', { silent:true }).output;

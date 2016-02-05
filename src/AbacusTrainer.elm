@@ -34,6 +34,7 @@ type alias Model =
   , ball_locations : List Position
   , correct_locations : List Position
   , needs_refresh : Bool
+  , game_was_reset: Bool
   , angle         : Float
   , x_offset      : Int
   , animationState : AnimationState
@@ -42,16 +43,17 @@ type alias Model =
 initial_state: Model
 initial_state =
   { window_height = 600
-  , window_width = 2400
-  , user_choice = 0
+  , window_width  = 2400
+  , user_choice   = 0
   , score = 0
-  , rng = int 0 9
+  , rng   = int 0 9
   , target_number_and_seed = (1,  initialSeed 314)
-  , ball_locations = resetPositions (List.repeat 10 {x = 0, y = 0})
+  , ball_locations    = resetPositions (List.repeat 10 {x = 0, y = 0})
   , correct_locations = resetPositions (List.repeat 10 {x = 0, y = 0})
-  , needs_refresh = False
-  , angle         = 0
-  , x_offset      = 0
+  , needs_refresh  = False
+  , game_was_reset = True
+  , angle          = 0
+  , x_offset       = 0
   , animationState = Maybe.Nothing
   }
 
@@ -79,13 +81,16 @@ update action current_state =
         , user_choice = 0
         , ball_locations = resetPositions current_state.ball_locations
         , correct_locations = resetPositions current_state.ball_locations
-        , needs_refresh = True
+        , needs_refresh  = True
+        , game_was_reset = False
       }
 
     Reset ->
       { current_state
-        | user_choice = 0
-        , ball_locations = resetPositions current_state.ball_locations
+        | user_choice       = 0
+        , score             = 0
+        , game_was_reset    = True
+        , ball_locations    = resetPositions current_state.ball_locations
         , correct_locations = resetPositions current_state.ball_locations
       }
 
@@ -130,7 +135,7 @@ effective_update action current_state =
     Reset ->
       case current_state.animationState of
         Nothing ->
-          ( current_state, Effects.none ) -- tick Tick )
+          ( update action current_state, Effects.none ) -- tick Tick )
 
         Just _ ->
           ( update action current_state, Effects.none )
@@ -259,6 +264,12 @@ renderGUI address_of_actions (w, h) current_state =
 
 target_area : Signal.Address Action  -> (Int, Int) -> Model -> Svg
 target_area address_of_actions (w, h) current_state =
+  let
+    target_ball = (toString (1 + fst current_state.target_number_and_seed)) 
+    target_text = if current_state.game_was_reset 
+                  then "Click me !"
+                  else target_ball
+  in
     g [ Svg.Events.onClick (Signal.message address_of_actions ClickedRefresh) ]
       [ rect
           [ x "0"
@@ -275,11 +286,11 @@ target_area address_of_actions (w, h) current_state =
           , y "160"
           , fontSize "55"
           ]
-          [ text (toString (1 + fst current_state.target_number_and_seed))]
+          [ text target_text ]
       ]
 score_area : Signal.Address Action  -> (Int, Int) -> Model -> Svg
 score_area address_of_actions (w, h) current_state =
-    g [ Svg.Events.onClick (Signal.message address_of_actions ClickedRefresh) ]
+    g [ Svg.Events.onClick (Signal.message address_of_actions Reset ) ]
       [
         rect
           [ x "550"

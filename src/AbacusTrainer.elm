@@ -185,7 +185,7 @@ effective_update action current_state =
 
 resetBallLocation : Int -> Position -> Position
 resetBallLocation n ball =
-  { ball | x = (n * 80 + 400), y = 60 }
+  { ball | x = (n * 80 + 200), y = 60 }
 
 
 resetPositions : List Position -> List Position
@@ -282,7 +282,7 @@ score_area address_of_actions (w, h) current_state =
     g [ Svg.Events.onClick (Signal.message address_of_actions ClickedRefresh) ]
       [
         rect
-          [ x "750"
+          [ x "550"
           , y "120"
           , width "120"
           , height "120"
@@ -292,7 +292,7 @@ score_area address_of_actions (w, h) current_state =
           ]
           []
       , text'
-          [ x "750"
+          [ x "550"
           , y "160"
           , fontSize "55" ]
           [ text (toString ( current_state.score)) ]

@@ -12701,9 +12701,12 @@ Elm.AbacusTrainer.make = function (_elm) {
            ,user_choice: 0
            ,ball_locations: resetPositions(current_state.ball_locations)
            ,correct_locations: resetPositions(current_state.ball_locations)
-           ,needs_refresh: true});
+           ,needs_refresh: true
+           ,game_was_reset: false});
          case "Reset": return _U.update(current_state,
            {user_choice: 0
+           ,score: 0
+           ,game_was_reset: true
            ,ball_locations: resetPositions(current_state.ball_locations)
            ,correct_locations: resetPositions(current_state.ball_locations)});
          case "ClickedBall": var _p1 = _p0._0;
@@ -12731,11 +12734,36 @@ Elm.AbacusTrainer.make = function (_elm) {
       return {ctor: "ClickedBall",_0: a};
    };
    var Reset = {ctor: "Reset"};
-   var ClickedRefresh = {ctor: "ClickedRefresh"};
-   var target_area = F3(function (address_of_actions,
+   var score_area = F3(function (address_of_actions,
    _p2,
    current_state) {
       var _p3 = _p2;
+      return A2($Svg.g,
+      _U.list([$Svg$Events.onClick(A2($Signal.message,
+      address_of_actions,
+      Reset))]),
+      _U.list([A2($Svg.rect,
+              _U.list([$Svg$Attributes.x("550")
+                      ,$Svg$Attributes.y("120")
+                      ,$Svg$Attributes.width("120")
+                      ,$Svg$Attributes.height("120")
+                      ,$Svg$Attributes.rx("15")
+                      ,$Svg$Attributes.ry("15")
+                      ,$Svg$Attributes.fill("lightBlue")]),
+              _U.list([]))
+              ,A2($Svg.text$,
+              _U.list([$Svg$Attributes.x("550")
+                      ,$Svg$Attributes.y("160")
+                      ,$Svg$Attributes.fontSize("55")]),
+              _U.list([$Svg.text($Basics.toString(current_state.score))]))]));
+   });
+   var ClickedRefresh = {ctor: "ClickedRefresh"};
+   var target_area = F3(function (address_of_actions,
+   _p4,
+   current_state) {
+      var _p5 = _p4;
+      var target_ball = $Basics.toString(1 + $Basics.fst(current_state.target_number_and_seed));
+      var target_text = current_state.game_was_reset ? "Click me !" : target_ball;
       return A2($Svg.g,
       _U.list([$Svg$Events.onClick(A2($Signal.message,
       address_of_actions,
@@ -12753,30 +12781,7 @@ Elm.AbacusTrainer.make = function (_elm) {
               _U.list([$Svg$Attributes.x("0")
                       ,$Svg$Attributes.y("160")
                       ,$Svg$Attributes.fontSize("55")]),
-              _U.list([$Svg.text($Basics.toString(1 + $Basics.fst(current_state.target_number_and_seed)))]))]));
-   });
-   var score_area = F3(function (address_of_actions,
-   _p4,
-   current_state) {
-      var _p5 = _p4;
-      return A2($Svg.g,
-      _U.list([$Svg$Events.onClick(A2($Signal.message,
-      address_of_actions,
-      ClickedRefresh))]),
-      _U.list([A2($Svg.rect,
-              _U.list([$Svg$Attributes.x("550")
-                      ,$Svg$Attributes.y("120")
-                      ,$Svg$Attributes.width("120")
-                      ,$Svg$Attributes.height("120")
-                      ,$Svg$Attributes.rx("15")
-                      ,$Svg$Attributes.ry("15")
-                      ,$Svg$Attributes.fill("lightBlue")]),
-              _U.list([]))
-              ,A2($Svg.text$,
-              _U.list([$Svg$Attributes.x("550")
-                      ,$Svg$Attributes.y("160")
-                      ,$Svg$Attributes.fontSize("55")]),
-              _U.list([$Svg.text($Basics.toString(current_state.score))]))]));
+              _U.list([$Svg.text(target_text)]))]));
    });
    var duration = $Time.second;
    var rotateStep = 90;
@@ -12795,7 +12800,9 @@ Elm.AbacusTrainer.make = function (_elm) {
               }
          case "Reset": var _p8 = current_state.animationState;
            if (_p8.ctor === "Nothing") {
-                 return {ctor: "_Tuple2",_0: current_state,_1: $Effects.none};
+                 return {ctor: "_Tuple2"
+                        ,_0: A2(update,action,current_state)
+                        ,_1: $Effects.none};
               } else {
                  return {ctor: "_Tuple2"
                         ,_0: A2(update,action,current_state)
@@ -12985,6 +12992,7 @@ Elm.AbacusTrainer.make = function (_elm) {
                        10,
                        {x: 0,y: 0}))
                        ,needs_refresh: false
+                       ,game_was_reset: true
                        ,angle: 0
                        ,x_offset: 0
                        ,animationState: $Maybe.Nothing};
@@ -13006,18 +13014,21 @@ Elm.AbacusTrainer.make = function (_elm) {
                               return function (j) {
                                  return function (k) {
                                     return function (l) {
-                                       return {window_height: a
-                                              ,window_width: b
-                                              ,user_choice: c
-                                              ,score: d
-                                              ,rng: e
-                                              ,target_number_and_seed: f
-                                              ,ball_locations: g
-                                              ,correct_locations: h
-                                              ,needs_refresh: i
-                                              ,angle: j
-                                              ,x_offset: k
-                                              ,animationState: l};
+                                       return function (m) {
+                                          return {window_height: a
+                                                 ,window_width: b
+                                                 ,user_choice: c
+                                                 ,score: d
+                                                 ,rng: e
+                                                 ,target_number_and_seed: f
+                                                 ,ball_locations: g
+                                                 ,correct_locations: h
+                                                 ,needs_refresh: i
+                                                 ,game_was_reset: j
+                                                 ,angle: k
+                                                 ,x_offset: l
+                                                 ,animationState: m};
+                                       };
                                     };
                                  };
                               };

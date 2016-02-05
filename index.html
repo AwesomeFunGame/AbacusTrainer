@@ -6003,6 +6003,397 @@ Elm.Signal.make = function (_elm) {
                                ,message: message
                                ,forwardTo: forwardTo
                                ,Mailbox: Mailbox};
+};Elm.Native.Time = {};
+
+Elm.Native.Time.make = function(localRuntime)
+{
+	localRuntime.Native = localRuntime.Native || {};
+	localRuntime.Native.Time = localRuntime.Native.Time || {};
+	if (localRuntime.Native.Time.values)
+	{
+		return localRuntime.Native.Time.values;
+	}
+
+	var NS = Elm.Native.Signal.make(localRuntime);
+	var Maybe = Elm.Maybe.make(localRuntime);
+
+
+	// FRAMES PER SECOND
+
+	function fpsWhen(desiredFPS, isOn)
+	{
+		var msPerFrame = 1000 / desiredFPS;
+		var ticker = NS.input('fps-' + desiredFPS, null);
+
+		function notifyTicker()
+		{
+			localRuntime.notify(ticker.id, null);
+		}
+
+		function firstArg(x, y)
+		{
+			return x;
+		}
+
+		// input fires either when isOn changes, or when ticker fires.
+		// Its value is a tuple with the current timestamp, and the state of isOn
+		var input = NS.timestamp(A3(NS.map2, F2(firstArg), NS.dropRepeats(isOn), ticker));
+
+		var initialState = {
+			isOn: false,
+			time: localRuntime.timer.programStart,
+			delta: 0
+		};
+
+		var timeoutId;
+
+		function update(input, state)
+		{
+			var currentTime = input._0;
+			var isOn = input._1;
+			var wasOn = state.isOn;
+			var previousTime = state.time;
+
+			if (isOn)
+			{
+				timeoutId = localRuntime.setTimeout(notifyTicker, msPerFrame);
+			}
+			else if (wasOn)
+			{
+				clearTimeout(timeoutId);
+			}
+
+			return {
+				isOn: isOn,
+				time: currentTime,
+				delta: (isOn && !wasOn) ? 0 : currentTime - previousTime
+			};
+		}
+
+		return A2(
+			NS.map,
+			function(state) { return state.delta; },
+			A3(NS.foldp, F2(update), update(input.value, initialState), input)
+		);
+	}
+
+
+	// EVERY
+
+	function every(t)
+	{
+		var ticker = NS.input('every-' + t, null);
+		function tellTime()
+		{
+			localRuntime.notify(ticker.id, null);
+		}
+		var clock = A2(NS.map, fst, NS.timestamp(ticker));
+		setInterval(tellTime, t);
+		return clock;
+	}
+
+
+	function fst(pair)
+	{
+		return pair._0;
+	}
+
+
+	function read(s)
+	{
+		var t = Date.parse(s);
+		return isNaN(t) ? Maybe.Nothing : Maybe.Just(t);
+	}
+
+	return localRuntime.Native.Time.values = {
+		fpsWhen: F2(fpsWhen),
+		every: every,
+		toDate: function(t) { return new Date(t); },
+		read: read
+	};
+};
+Elm.Time = Elm.Time || {};
+Elm.Time.make = function (_elm) {
+   "use strict";
+   _elm.Time = _elm.Time || {};
+   if (_elm.Time.values) return _elm.Time.values;
+   var _U = Elm.Native.Utils.make(_elm),
+   $Basics = Elm.Basics.make(_elm),
+   $Native$Signal = Elm.Native.Signal.make(_elm),
+   $Native$Time = Elm.Native.Time.make(_elm),
+   $Signal = Elm.Signal.make(_elm);
+   var _op = {};
+   var delay = $Native$Signal.delay;
+   var since = F2(function (time,signal) {
+      var stop = A2($Signal.map,
+      $Basics.always(-1),
+      A2(delay,time,signal));
+      var start = A2($Signal.map,$Basics.always(1),signal);
+      var delaydiff = A3($Signal.foldp,
+      F2(function (x,y) {    return x + y;}),
+      0,
+      A2($Signal.merge,start,stop));
+      return A2($Signal.map,
+      F2(function (x,y) {    return !_U.eq(x,y);})(0),
+      delaydiff);
+   });
+   var timestamp = $Native$Signal.timestamp;
+   var every = $Native$Time.every;
+   var fpsWhen = $Native$Time.fpsWhen;
+   var fps = function (targetFrames) {
+      return A2(fpsWhen,targetFrames,$Signal.constant(true));
+   };
+   var inMilliseconds = function (t) {    return t;};
+   var millisecond = 1;
+   var second = 1000 * millisecond;
+   var minute = 60 * second;
+   var hour = 60 * minute;
+   var inHours = function (t) {    return t / hour;};
+   var inMinutes = function (t) {    return t / minute;};
+   var inSeconds = function (t) {    return t / second;};
+   return _elm.Time.values = {_op: _op
+                             ,millisecond: millisecond
+                             ,second: second
+                             ,minute: minute
+                             ,hour: hour
+                             ,inMilliseconds: inMilliseconds
+                             ,inSeconds: inSeconds
+                             ,inMinutes: inMinutes
+                             ,inHours: inHours
+                             ,fps: fps
+                             ,fpsWhen: fpsWhen
+                             ,every: every
+                             ,timestamp: timestamp
+                             ,delay: delay
+                             ,since: since};
+};Elm.Easing = Elm.Easing || {};
+Elm.Easing.make = function (_elm) {
+   "use strict";
+   _elm.Easing = _elm.Easing || {};
+   if (_elm.Easing.values) return _elm.Easing.values;
+   var _U = Elm.Native.Utils.make(_elm),
+   $Basics = Elm.Basics.make(_elm),
+   $Color = Elm.Color.make(_elm),
+   $Debug = Elm.Debug.make(_elm),
+   $List = Elm.List.make(_elm),
+   $Maybe = Elm.Maybe.make(_elm),
+   $Result = Elm.Result.make(_elm),
+   $Signal = Elm.Signal.make(_elm),
+   $Time = Elm.Time.make(_elm);
+   var _op = {};
+   var cycle = F3(function (animation,d,t) {
+      return A2(animation,
+      1,
+      t / d - $Basics.toFloat($Basics.floor(t / d)));
+   });
+   var flip = F2(function (easing,time) {
+      return easing(1 - time);
+   });
+   var retour = F2(function (easing,time) {
+      return _U.cmp(time,0.5) < 0 ? easing(time * 2) : A2(flip,
+      easing,
+      (time - 0.5) * 2);
+   });
+   var invert = F2(function (easing,time) {
+      return 1 - easing(1 - time);
+   });
+   var inOut = F3(function (e1,e2,time) {
+      return _U.cmp(time,
+      0.5) < 0 ? e1(time * 2) / 2 : 0.5 + e2((time - 0.5) * 2) / 2;
+   });
+   var easeInElastic = function (time) {
+      var t$ = time - 1;
+      var p = 0.3;
+      var s = 7.5e-2;
+      return 0 - Math.pow(2,
+      10 * t$) * $Basics.sin((t$ - s) * (2 * $Basics.pi) / p);
+   };
+   var easeOutElastic = invert(easeInElastic);
+   var easeInOutElastic = A2(inOut,easeInElastic,easeOutElastic);
+   var easeOutBounce = function (time) {
+      var t4 = time - 2.65 / 2.75;
+      var t3 = time - 2.25 / 2.75;
+      var t2 = time - 1.5 / 2.75;
+      var a = 7.5625;
+      return _U.cmp(time,
+      1 / 2.75) < 0 ? a * time * time : _U.cmp(time,
+      2 / 2.75) < 0 ? a * t2 * t2 + 0.75 : _U.cmp(time,
+      2.5 / 2.75) < 0 ? a * t3 * t3 + 0.9375 : a * t4 * t4 + 0.984375;
+   };
+   var easeInBounce = invert(easeOutBounce);
+   var easeInOutBounce = A2(inOut,easeInBounce,easeOutBounce);
+   var easeInBack = function (time) {
+      return time * time * (2.70158 * time - 1.70158);
+   };
+   var easeOutBack = invert(easeInBack);
+   var easeInOutBack = A2(inOut,easeInBack,easeOutBack);
+   var easeOutCirc = function (time) {
+      return $Basics.sqrt(1 - Math.pow(time - 1,2));
+   };
+   var easeInCirc = invert(easeOutCirc);
+   var easeInOutCirc = A2(inOut,easeInCirc,easeOutCirc);
+   var easeInExpo = function (time) {
+      return Math.pow(2,10 * (time - 1));
+   };
+   var easeOutExpo = invert(easeInExpo);
+   var easeInOutExpo = A2(inOut,easeInExpo,easeOutExpo);
+   var easeOutSine = function (time) {
+      return $Basics.sin(time * ($Basics.pi / 2));
+   };
+   var easeInSine = invert(easeOutSine);
+   var easeInOutSine = A2(inOut,easeInSine,easeOutSine);
+   var easeInQuint = function (time) {
+      return Math.pow(time,5);
+   };
+   var easeOutQuint = invert(easeInQuint);
+   var easeInOutQuint = A2(inOut,easeInQuint,easeOutQuint);
+   var easeInQuart = function (time) {
+      return Math.pow(time,4);
+   };
+   var easeOutQuart = invert(easeInQuart);
+   var easeInOutQuart = A2(inOut,easeInQuart,easeOutQuart);
+   var easeInCubic = function (time) {
+      return Math.pow(time,3);
+   };
+   var easeOutCubic = invert(easeInCubic);
+   var easeInOutCubic = A2(inOut,easeInCubic,easeOutCubic);
+   var easeInQuad = function (time) {    return Math.pow(time,2);};
+   var easeOutQuad = invert(easeInQuad);
+   var easeInOutQuad = A2(inOut,easeInQuad,easeOutQuad);
+   var linear = $Basics.identity;
+   var pair = F4(function (interpolate,_p1,_p0,v) {
+      var _p2 = _p1;
+      var _p3 = _p0;
+      return {ctor: "_Tuple2"
+             ,_0: A3(interpolate,_p2._0,_p3._0,v)
+             ,_1: A3(interpolate,_p2._1,_p3._1,v)};
+   });
+   var $float = F3(function (from,to,v) {
+      return from + (to - from) * v;
+   });
+   var point2d = F3(function (from,to,v) {
+      return {x: A3($float,from.x,to.x,v)
+             ,y: A3($float,from.y,to.y,v)};
+   });
+   var point3d = F3(function (from,to,v) {
+      return {x: A3($float,from.x,to.x,v)
+             ,y: A3($float,from.y,to.y,v)
+             ,z: A3($float,from.z,to.z,v)};
+   });
+   var color = F3(function (from,to,v) {
+      var float$ = F3(function (from,to,v) {
+         return $Basics.round(A3($float,
+         $Basics.toFloat(from),
+         $Basics.toFloat(to),
+         v));
+      });
+      var _p4 = {ctor: "_Tuple2"
+                ,_0: $Color.toRgb(from)
+                ,_1: $Color.toRgb(to)};
+      var rgb1 = _p4._0;
+      var rgb2 = _p4._1;
+      var _p5 = {ctor: "_Tuple4"
+                ,_0: rgb1.red
+                ,_1: rgb1.green
+                ,_2: rgb1.blue
+                ,_3: rgb1.alpha};
+      var r1 = _p5._0;
+      var g1 = _p5._1;
+      var b1 = _p5._2;
+      var a1 = _p5._3;
+      var _p6 = {ctor: "_Tuple4"
+                ,_0: rgb2.red
+                ,_1: rgb2.green
+                ,_2: rgb2.blue
+                ,_3: rgb2.alpha};
+      var r2 = _p6._0;
+      var g2 = _p6._1;
+      var b2 = _p6._2;
+      var a2 = _p6._3;
+      return A4($Color.rgba,
+      A3(float$,r1,r2,v),
+      A3(float$,g1,g2,v),
+      A3(float$,b1,b2,v),
+      A3($float,a1,a2,v));
+   });
+   var bezier = F5(function (x1,y1,x2,y2,time) {
+      var casteljau = function (ps) {
+         casteljau: while (true) {
+            var _p7 = ps;
+            if (_p7.ctor === "::" && _p7._0.ctor === "_Tuple2" && _p7._1.ctor === "[]")
+            {
+                  return _p7._0._1;
+               } else {
+                  var _p8 = _p7;
+                  var _v3 = A3($List.map2,
+                  F2(function (x,y) {    return A4(pair,$float,x,y,time);}),
+                  _p8,
+                  A2($Maybe.withDefault,_U.list([]),$List.tail(_p8)));
+                  ps = _v3;
+                  continue casteljau;
+               }
+         }
+      };
+      return casteljau(_U.list([{ctor: "_Tuple2",_0: 0,_1: 0}
+                               ,{ctor: "_Tuple2",_0: x1,_1: y1}
+                               ,{ctor: "_Tuple2",_0: x2,_1: y2}
+                               ,{ctor: "_Tuple2",_0: 1,_1: 1}]));
+   });
+   var ease = F6(function (easing,
+   interpolation,
+   from,
+   to,
+   duration,
+   time) {
+      return A3(interpolation,
+      from,
+      to,
+      easing(A2($Basics.min,time / duration,1)));
+   });
+   return _elm.Easing.values = {_op: _op
+                               ,ease: ease
+                               ,$float: $float
+                               ,point2d: point2d
+                               ,point3d: point3d
+                               ,color: color
+                               ,pair: pair
+                               ,cycle: cycle
+                               ,invert: invert
+                               ,retour: retour
+                               ,inOut: inOut
+                               ,flip: flip
+                               ,bezier: bezier
+                               ,linear: linear
+                               ,easeInQuad: easeInQuad
+                               ,easeOutQuad: easeOutQuad
+                               ,easeInOutQuad: easeInOutQuad
+                               ,easeInCubic: easeInCubic
+                               ,easeOutCubic: easeOutCubic
+                               ,easeInOutCubic: easeInOutCubic
+                               ,easeInQuart: easeInQuart
+                               ,easeOutQuart: easeOutQuart
+                               ,easeInOutQuart: easeInOutQuart
+                               ,easeInQuint: easeInQuint
+                               ,easeOutQuint: easeOutQuint
+                               ,easeInOutQuint: easeInOutQuint
+                               ,easeInSine: easeInSine
+                               ,easeOutSine: easeOutSine
+                               ,easeInOutSine: easeInOutSine
+                               ,easeInExpo: easeInExpo
+                               ,easeOutExpo: easeOutExpo
+                               ,easeInOutExpo: easeInOutExpo
+                               ,easeInCirc: easeInCirc
+                               ,easeOutCirc: easeOutCirc
+                               ,easeInOutCirc: easeInOutCirc
+                               ,easeInBack: easeInBack
+                               ,easeOutBack: easeOutBack
+                               ,easeInOutBack: easeInOutBack
+                               ,easeInBounce: easeInBounce
+                               ,easeOutBounce: easeOutBounce
+                               ,easeInOutBounce: easeInOutBounce
+                               ,easeInElastic: easeInElastic
+                               ,easeOutElastic: easeOutElastic
+                               ,easeInOutElastic: easeInOutElastic};
 };Elm.Native.Json = {};
 
 Elm.Native.Json.make = function(localRuntime) {
@@ -12046,14 +12437,238 @@ Elm.Window.make = function (_elm) {
                                ,dimensions: dimensions
                                ,width: width
                                ,height: height};
-};Elm.Main = Elm.Main || {};
-Elm.Main.make = function (_elm) {
+};Elm.Native.Effects = {};
+Elm.Native.Effects.make = function(localRuntime) {
+
+	localRuntime.Native = localRuntime.Native || {};
+	localRuntime.Native.Effects = localRuntime.Native.Effects || {};
+	if (localRuntime.Native.Effects.values)
+	{
+		return localRuntime.Native.Effects.values;
+	}
+
+	var Task = Elm.Native.Task.make(localRuntime);
+	var Utils = Elm.Native.Utils.make(localRuntime);
+	var Signal = Elm.Signal.make(localRuntime);
+	var List = Elm.Native.List.make(localRuntime);
+
+
+	// polyfill so things will work even if rAF is not available for some reason
+	var _requestAnimationFrame =
+		typeof requestAnimationFrame !== 'undefined'
+			? requestAnimationFrame
+			: function(cb) { setTimeout(cb, 1000 / 60); }
+			;
+
+
+	// batchedSending and sendCallback implement a small state machine in order
+	// to schedule only one send(time) call per animation frame.
+	//
+	// Invariants:
+	// 1. In the NO_REQUEST state, there is never a scheduled sendCallback.
+	// 2. In the PENDING_REQUEST and EXTRA_REQUEST states, there is always exactly
+	//    one scheduled sendCallback.
+	var NO_REQUEST = 0;
+	var PENDING_REQUEST = 1;
+	var EXTRA_REQUEST = 2;
+	var state = NO_REQUEST;
+	var messageArray = [];
+
+
+	function batchedSending(address, tickMessages)
+	{
+		// insert ticks into the messageArray
+		var foundAddress = false;
+
+		for (var i = messageArray.length; i--; )
+		{
+			if (messageArray[i].address === address)
+			{
+				foundAddress = true;
+				messageArray[i].tickMessages = A3(List.foldl, List.cons, messageArray[i].tickMessages, tickMessages);
+				break;
+			}
+		}
+
+		if (!foundAddress)
+		{
+			messageArray.push({ address: address, tickMessages: tickMessages });
+		}
+
+		// do the appropriate state transition
+		switch (state)
+		{
+			case NO_REQUEST:
+				_requestAnimationFrame(sendCallback);
+				state = PENDING_REQUEST;
+				break;
+			case PENDING_REQUEST:
+				state = PENDING_REQUEST;
+				break;
+			case EXTRA_REQUEST:
+				state = PENDING_REQUEST;
+				break;
+		}
+	}
+
+
+	function sendCallback(time)
+	{
+		switch (state)
+		{
+			case NO_REQUEST:
+				// This state should not be possible. How can there be no
+				// request, yet somehow we are actively fulfilling a
+				// request?
+				throw new Error(
+					'Unexpected send callback.\n' +
+					'Please report this to <https://github.com/evancz/elm-effects/issues>.'
+				);
+
+			case PENDING_REQUEST:
+				// At this point, we do not *know* that another frame is
+				// needed, but we make an extra request to rAF just in
+				// case. It's possible to drop a frame if rAF is called
+				// too late, so we just do it preemptively.
+				_requestAnimationFrame(sendCallback);
+				state = EXTRA_REQUEST;
+
+				// There's also stuff we definitely need to send.
+				send(time);
+				return;
+
+			case EXTRA_REQUEST:
+				// Turns out the extra request was not needed, so we will
+				// stop calling rAF. No reason to call it all the time if
+				// no one needs it.
+				state = NO_REQUEST;
+				return;
+		}
+	}
+
+
+	function send(time)
+	{
+		for (var i = messageArray.length; i--; )
+		{
+			var messages = A3(
+				List.foldl,
+				F2( function(toAction, list) { return List.Cons(toAction(time), list); } ),
+				List.Nil,
+				messageArray[i].tickMessages
+			);
+			Task.perform( A2(Signal.send, messageArray[i].address, messages) );
+		}
+		messageArray = [];
+	}
+
+
+	function requestTickSending(address, tickMessages)
+	{
+		return Task.asyncFunction(function(callback) {
+			batchedSending(address, tickMessages);
+			callback(Task.succeed(Utils.Tuple0));
+		});
+	}
+
+
+	return localRuntime.Native.Effects.values = {
+		requestTickSending: F2(requestTickSending)
+	};
+
+};
+Elm.Effects = Elm.Effects || {};
+Elm.Effects.make = function (_elm) {
    "use strict";
-   _elm.Main = _elm.Main || {};
-   if (_elm.Main.values) return _elm.Main.values;
+   _elm.Effects = _elm.Effects || {};
+   if (_elm.Effects.values) return _elm.Effects.values;
    var _U = Elm.Native.Utils.make(_elm),
    $Basics = Elm.Basics.make(_elm),
    $Debug = Elm.Debug.make(_elm),
+   $List = Elm.List.make(_elm),
+   $Maybe = Elm.Maybe.make(_elm),
+   $Native$Effects = Elm.Native.Effects.make(_elm),
+   $Result = Elm.Result.make(_elm),
+   $Signal = Elm.Signal.make(_elm),
+   $Task = Elm.Task.make(_elm),
+   $Time = Elm.Time.make(_elm);
+   var _op = {};
+   var ignore = function (task) {
+      return A2($Task.map,$Basics.always({ctor: "_Tuple0"}),task);
+   };
+   var requestTickSending = $Native$Effects.requestTickSending;
+   var toTaskHelp = F3(function (address,effect,_p0) {
+      var _p1 = _p0;
+      var _p5 = _p1._1;
+      var _p4 = _p1;
+      var _p3 = _p1._0;
+      var _p2 = effect;
+      switch (_p2.ctor)
+      {case "Task": var reporter = A2($Task.andThen,
+           _p2._0,
+           function (answer) {
+              return A2($Signal.send,address,_U.list([answer]));
+           });
+           return {ctor: "_Tuple2"
+                  ,_0: A2($Task.andThen,
+                  _p3,
+                  $Basics.always(ignore($Task.spawn(reporter))))
+                  ,_1: _p5};
+         case "Tick": return {ctor: "_Tuple2"
+                             ,_0: _p3
+                             ,_1: A2($List._op["::"],_p2._0,_p5)};
+         case "None": return _p4;
+         default: return A3($List.foldl,toTaskHelp(address),_p4,_p2._0);}
+   });
+   var toTask = F2(function (address,effect) {
+      var _p6 = A3(toTaskHelp,
+      address,
+      effect,
+      {ctor: "_Tuple2"
+      ,_0: $Task.succeed({ctor: "_Tuple0"})
+      ,_1: _U.list([])});
+      var combinedTask = _p6._0;
+      var tickMessages = _p6._1;
+      return $List.isEmpty(tickMessages) ? combinedTask : A2($Task.andThen,
+      combinedTask,
+      $Basics.always(A2(requestTickSending,address,tickMessages)));
+   });
+   var Never = function (a) {    return {ctor: "Never",_0: a};};
+   var Batch = function (a) {    return {ctor: "Batch",_0: a};};
+   var batch = Batch;
+   var None = {ctor: "None"};
+   var none = None;
+   var Tick = function (a) {    return {ctor: "Tick",_0: a};};
+   var tick = Tick;
+   var Task = function (a) {    return {ctor: "Task",_0: a};};
+   var task = Task;
+   var map = F2(function (func,effect) {
+      var _p7 = effect;
+      switch (_p7.ctor)
+      {case "Task": return Task(A2($Task.map,func,_p7._0));
+         case "Tick": return Tick(function (_p8) {
+              return func(_p7._0(_p8));
+           });
+         case "None": return None;
+         default: return Batch(A2($List.map,map(func),_p7._0));}
+   });
+   return _elm.Effects.values = {_op: _op
+                                ,none: none
+                                ,task: task
+                                ,tick: tick
+                                ,map: map
+                                ,batch: batch
+                                ,toTask: toTask};
+};Elm.AbacusTrainer = Elm.AbacusTrainer || {};
+Elm.AbacusTrainer.make = function (_elm) {
+   "use strict";
+   _elm.AbacusTrainer = _elm.AbacusTrainer || {};
+   if (_elm.AbacusTrainer.values) return _elm.AbacusTrainer.values;
+   var _U = Elm.Native.Utils.make(_elm),
+   $Basics = Elm.Basics.make(_elm),
+   $Debug = Elm.Debug.make(_elm),
+   $Easing = Elm.Easing.make(_elm),
+   $Effects = Elm.Effects.make(_elm),
    $Html = Elm.Html.make(_elm),
    $List = Elm.List.make(_elm),
    $Maybe = Elm.Maybe.make(_elm),
@@ -12063,7 +12678,7 @@ Elm.Main.make = function (_elm) {
    $Svg = Elm.Svg.make(_elm),
    $Svg$Attributes = Elm.Svg.Attributes.make(_elm),
    $Svg$Events = Elm.Svg.Events.make(_elm),
-   $Window = Elm.Window.make(_elm);
+   $Time = Elm.Time.make(_elm);
    var _op = {};
    var shift_ball_left = function (ball) {
       return _U.update(ball,{x: ball.x - 100});
@@ -12085,67 +12700,45 @@ Elm.Main.make = function (_elm) {
            $Basics.snd(current_state.target_number_and_seed))
            ,user_choice: 0
            ,ball_locations: resetPositions(current_state.ball_locations)
+           ,correct_locations: resetPositions(current_state.ball_locations)
            ,needs_refresh: true});
          case "Reset": return _U.update(current_state,
            {user_choice: 0
-           ,ball_locations: resetPositions(current_state.ball_locations)});
-         default: var _p1 = _p0._0;
+           ,ball_locations: resetPositions(current_state.ball_locations)
+           ,correct_locations: resetPositions(current_state.ball_locations)});
+         case "ClickedBall": var _p1 = _p0._0;
            return _U.eq(current_state.needs_refresh,true) ? _U.eq(_p1,
            $Basics.fst(current_state.target_number_and_seed)) ? _U.update(current_state,
            {user_choice: _p1 + 1
            ,score: current_state.score + 1
-           ,ball_locations: A2($Basics._op["++"],
+           ,correct_locations: A2($Basics._op["++"],
            A2($List.map,
            shift_ball_left,
            A2($List.take,_p1 + 1,current_state.ball_locations)),
            A2($List.drop,_p1 + 1,current_state.ball_locations))
            ,needs_refresh: false}) : _U.update(current_state,
            {user_choice: _p1 + 1
-           ,score: current_state.score - 1}) : current_state;}
+           ,score: current_state.score - 1}) : current_state;
+         case "WindowSize": return _U.update(current_state,
+           {window_width: _p0._0._0,window_height: _p0._0._1});
+         default: return current_state;}
    });
+   var WindowSize = function (a) {
+      return {ctor: "WindowSize",_0: a};
+   };
+   var Tick = function (a) {    return {ctor: "Tick",_0: a};};
    var ClickedBall = function (a) {
       return {ctor: "ClickedBall",_0: a};
    };
-   var cr30 = F5(function (xpos,ypos,n,labelSize,picture_address) {
-      return A2($Svg.g,
-      _U.list([$Svg$Events.onClick(A2($Signal.message,
-      picture_address,
-      ClickedBall(n)))]),
-      _U.list([A2($Svg.circle,
-              _U.list([$Svg$Attributes.cx(xpos)
-                      ,$Svg$Attributes.cy(ypos)
-                      ,$Svg$Attributes.r("30")
-                      ,$Svg$Attributes.fill("white")
-                      ,$Svg$Attributes.style("stroke:rgb(255,0,0);stroke-width:2")]),
-              _U.list([]))
-              ,A2($Svg.text$,
-              _U.list([$Svg$Attributes.x(xpos)
-                      ,$Svg$Attributes.y(ypos)
-                      ,$Svg$Attributes.fontSize(labelSize)]),
-              _U.list([$Svg.text($Basics.toString(n + 1))]))]));
-   });
-   var ten_circles = F2(function (picture_address,current_state) {
-      var labelSize = A2($Basics.max,0,30 - current_state.score);
-      var cx = F2(function (n,ball) {
-         return A5(cr30,
-         $Basics.toString(ball.x),
-         $Basics.toString(ball.y),
-         n,
-         $Basics.toString(labelSize),
-         picture_address);
-      });
-      return A2($List.indexedMap,cx,current_state.ball_locations);
-   });
    var Reset = {ctor: "Reset"};
-   var actions = $Signal.mailbox(Reset);
    var ClickedRefresh = {ctor: "ClickedRefresh"};
-   var target_area = F3(function (picture_address,
+   var target_area = F3(function (address_of_actions,
    _p2,
    current_state) {
       var _p3 = _p2;
       return A2($Svg.g,
       _U.list([$Svg$Events.onClick(A2($Signal.message,
-      picture_address,
+      address_of_actions,
       ClickedRefresh))]),
       _U.list([A2($Svg.rect,
               _U.list([$Svg$Attributes.x("0")
@@ -12160,8 +12753,17 @@ Elm.Main.make = function (_elm) {
               _U.list([$Svg$Attributes.x("0")
                       ,$Svg$Attributes.y("160")
                       ,$Svg$Attributes.fontSize("55")]),
-              _U.list([$Svg.text($Basics.toString(1 + $Basics.fst(current_state.target_number_and_seed)))]))
-              ,A2($Svg.rect,
+              _U.list([$Svg.text($Basics.toString(1 + $Basics.fst(current_state.target_number_and_seed)))]))]));
+   });
+   var score_area = F3(function (address_of_actions,
+   _p4,
+   current_state) {
+      var _p5 = _p4;
+      return A2($Svg.g,
+      _U.list([$Svg$Events.onClick(A2($Signal.message,
+      address_of_actions,
+      ClickedRefresh))]),
+      _U.list([A2($Svg.rect,
               _U.list([$Svg$Attributes.x("750")
                       ,$Svg$Attributes.y("120")
                       ,$Svg$Attributes.width("120")
@@ -12176,14 +12778,148 @@ Elm.Main.make = function (_elm) {
                       ,$Svg$Attributes.fontSize("55")]),
               _U.list([$Svg.text($Basics.toString(current_state.score))]))]));
    });
-   var renderGUI = F3(function (picture_address,
-   _p4,
+   var duration = $Time.second;
+   var rotateStep = 90;
+   var effective_update = F2(function (action,current_state) {
+      var _p6 = action;
+      switch (_p6.ctor)
+      {case "ClickedRefresh": var _p7 = current_state.animationState;
+           if (_p7.ctor === "Nothing") {
+                 return {ctor: "_Tuple2"
+                        ,_0: A2(update,action,current_state)
+                        ,_1: $Effects.none};
+              } else {
+                 return {ctor: "_Tuple2"
+                        ,_0: A2(update,action,current_state)
+                        ,_1: $Effects.none};
+              }
+         case "Reset": var _p8 = current_state.animationState;
+           if (_p8.ctor === "Nothing") {
+                 return {ctor: "_Tuple2",_0: current_state,_1: $Effects.none};
+              } else {
+                 return {ctor: "_Tuple2"
+                        ,_0: A2(update,action,current_state)
+                        ,_1: $Effects.none};
+              }
+         case "ClickedBall": var _p9 = current_state.animationState;
+           if (_p9.ctor === "Nothing") {
+                 return {ctor: "_Tuple2"
+                        ,_0: A2(update,action,current_state)
+                        ,_1: $Effects.tick(Tick)};
+              } else {
+                 return {ctor: "_Tuple2"
+                        ,_0: A2(update,action,current_state)
+                        ,_1: $Effects.none};
+              }
+         case "WindowSize": var _p10 = current_state.animationState;
+           if (_p10.ctor === "Nothing") {
+                 return {ctor: "_Tuple2",_0: current_state,_1: $Effects.none};
+              } else {
+                 return {ctor: "_Tuple2"
+                        ,_0: A2(update,action,current_state)
+                        ,_1: $Effects.none};
+              }
+         default: var _p12 = _p6._0;
+           var newElapsedTime = function () {
+              var _p11 = current_state.animationState;
+              if (_p11.ctor === "Nothing") {
+                    return 0;
+                 } else {
+                    return _p11._0.elapsedTime + (_p12 - _p11._0.prevClockTime);
+                 }
+           }();
+           return _U.cmp(newElapsedTime,duration) > 0 ? {ctor: "_Tuple2"
+                                                        ,_0: _U.update(current_state,
+                                                        {angle: current_state.angle + rotateStep
+                                                        ,x_offset: current_state.x_offset + rotateStep
+                                                        ,animationState: $Maybe.Nothing})
+                                                        ,_1: $Effects.none} : {ctor: "_Tuple2"
+                                                                              ,_0: _U.update(current_state,
+                                                                              {angle: current_state.angle
+                                                                              ,x_offset: current_state.x_offset
+                                                                              ,animationState: $Maybe.Just({elapsedTime: newElapsedTime
+                                                                                                           ,prevClockTime: _p12})})
+                                                                              ,_1: $Effects.tick(Tick)};}
+   });
+   var toOffset = function (animationState) {
+      var _p13 = animationState;
+      if (_p13.ctor === "Nothing") {
+            return 0;
+         } else {
+            return A6($Easing.ease,
+            $Easing.easeOutBounce,
+            $Easing.$float,
+            0,
+            rotateStep,
+            duration,
+            _p13._0.elapsedTime);
+         }
+   };
+   var cr30 = F5(function (ball_pair,
+   n,
+   labelSize,
+   current_state,
+   address_of_actions) {
+      var animoffset = toOffset(current_state.animationState);
+      var angle = $Basics.toString(current_state.angle + animoffset);
+      var rball = $Basics.snd(ball_pair);
+      var rxpos = $Basics.toString(rball.x);
+      var ypos = $Basics.toString(rball.y);
+      var cball = $Basics.fst(ball_pair);
+      var cxpos = $Basics.toString(cball.x);
+      var x_offset = _U.eq(cball.x,
+      rball.x) ? cxpos : $Basics.toString(rball.x - $Basics.round(animoffset));
+      return A2($Svg.g,
+      _U.list([$Svg$Attributes.transform(A2($Basics._op["++"],
+              "translate( ",
+              A2($Basics._op["++"],
+              x_offset,
+              A2($Basics._op["++"],", ",A2($Basics._op["++"],ypos," ) ")))))
+              ,$Svg$Events.onClick(A2($Signal.message,
+              address_of_actions,
+              ClickedBall(n)))]),
+      _U.list([A2($Svg.circle,
+              _U.list([$Svg$Attributes.cx("")
+                      ,$Svg$Attributes.cy("")
+                      ,$Svg$Attributes.r("30")
+                      ,$Svg$Attributes.fill("white")
+                      ,$Svg$Attributes.style("stroke:rgb(255,0,0);stroke-width:2")]),
+              _U.list([]))
+              ,A2($Svg.g,
+              _U.list([]),
+              _U.list([A2($Svg.text$,
+              _U.list([$Svg$Attributes.x("")
+                      ,$Svg$Attributes.y("")
+                      ,$Svg$Attributes.fontSize(labelSize)]),
+              _U.list([$Svg.text($Basics.toString(n + 1))]))]))]));
+   });
+   var ten_circles = F2(function (address_of_actions,
    current_state) {
-      var _p5 = _p4;
-      var _p7 = _p5._0;
-      var _p6 = _p5._1;
-      var boardHeight = $Basics.toString(A2($Basics.min,240,_p6));
-      var boardWidth = $Basics.toString(A2($Basics.min,1200,_p7));
+      var ball_pairs = A3($List.map2,
+      F2(function (v0,v1) {
+         return {ctor: "_Tuple2",_0: v0,_1: v1};
+      }),
+      current_state.correct_locations,
+      current_state.ball_locations);
+      var labelSize = A2($Basics.max,0,30 - current_state.score);
+      var cx = F2(function (n,ball_pair) {
+         return A5(cr30,
+         ball_pair,
+         n,
+         $Basics.toString(labelSize),
+         current_state,
+         address_of_actions);
+      });
+      return A2($List.indexedMap,cx,ball_pairs);
+   });
+   var renderGUI = F3(function (address_of_actions,
+   _p14,
+   current_state) {
+      var _p15 = _p14;
+      var _p17 = _p15._0;
+      var _p16 = _p15._1;
+      var boardHeight = $Basics.toString(A2($Basics.min,240,_p16));
+      var boardWidth = $Basics.toString(A2($Basics.min,1200,_p17));
       return A2($Svg.svg,
       _U.list([$Svg$Attributes.width(boardWidth)
               ,$Svg$Attributes.height(boardHeight)
@@ -12194,22 +12930,27 @@ Elm.Main.make = function (_elm) {
               A2($Basics._op["++"]," ",boardHeight))))
               ,$Svg$Attributes.fill("lightGray")]),
       $List.concat(_U.list([A2(ten_circles,
-                           picture_address,
+                           address_of_actions,
                            current_state)
                            ,_U.list([A3(target_area,
-                           picture_address,
-                           {ctor: "_Tuple2",_0: _p7,_1: _p6},
+                           address_of_actions,
+                           {ctor: "_Tuple2",_0: _p17,_1: _p16},
+                           current_state)])
+                           ,_U.list([A3(score_area,
+                           address_of_actions,
+                           {ctor: "_Tuple2",_0: _p17,_1: _p16},
                            current_state)])])));
    });
-   var view = F3(function (address,_p8,current_state) {
-      var _p9 = _p8;
+   var view = F2(function (address_of_actions,current_state) {
+      var h = current_state.window_height;
+      var w = current_state.window_width;
       return A2($Html.div,
       _U.list([]),
       _U.list([A2($Html.div,
               _U.list([]),
               _U.list([A3(renderGUI,
-              actions.address,
-              {ctor: "_Tuple2",_0: _p9._0,_1: _p9._1},
+              address_of_actions,
+              {ctor: "_Tuple2",_0: w,_1: h},
               current_state)]))
               ,A2($Html.div,
               _U.list([]),
@@ -12231,8 +12972,8 @@ Elm.Main.make = function (_elm) {
                       _U.list([]),
                       _U.list([$Html.text("And they get bigger when you make mistakes.")]))]))]))]));
    });
-   var initial_state = {window_height: 0
-                       ,window_width: 0
+   var initial_state = {window_height: 600
+                       ,window_width: 2400
                        ,user_choice: 0
                        ,score: 0
                        ,rng: A2($Random.$int,0,9)
@@ -12240,42 +12981,148 @@ Elm.Main.make = function (_elm) {
                                                 ,_0: 1
                                                 ,_1: $Random.initialSeed(314)}
                        ,ball_locations: resetPositions(A2($List.repeat,10,{x: 0,y: 0}))
-                       ,needs_refresh: false};
+                       ,correct_locations: resetPositions(A2($List.repeat,
+                       10,
+                       {x: 0,y: 0}))
+                       ,needs_refresh: false
+                       ,angle: 0
+                       ,x_offset: 0
+                       ,animationState: $Maybe.Nothing};
+   var init = {ctor: "_Tuple2"
+              ,_0: initial_state
+              ,_1: $Effects.none};
    var model = function (actions) {
       return A3($Signal.foldp,update,initial_state,actions);
    };
-   var main = A3($Signal.map2,
-   view(actions.address),
-   $Window.dimensions,
-   model(actions.signal));
+   var Model = function (a) {
+      return function (b) {
+         return function (c) {
+            return function (d) {
+               return function (e) {
+                  return function (f) {
+                     return function (g) {
+                        return function (h) {
+                           return function (i) {
+                              return function (j) {
+                                 return function (k) {
+                                    return function (l) {
+                                       return {window_height: a
+                                              ,window_width: b
+                                              ,user_choice: c
+                                              ,score: d
+                                              ,rng: e
+                                              ,target_number_and_seed: f
+                                              ,ball_locations: g
+                                              ,correct_locations: h
+                                              ,needs_refresh: i
+                                              ,angle: j
+                                              ,x_offset: k
+                                              ,animationState: l};
+                                    };
+                                 };
+                              };
+                           };
+                        };
+                     };
+                  };
+               };
+            };
+         };
+      };
+   };
    var Position = F2(function (a,b) {    return {x: a,y: b};});
-   var Model = F8(function (a,b,c,d,e,f,g,h) {
-      return {window_height: a
-             ,window_width: b
-             ,user_choice: c
-             ,score: d
-             ,rng: e
-             ,target_number_and_seed: f
-             ,ball_locations: g
-             ,needs_refresh: h};
+   return _elm.AbacusTrainer.values = {_op: _op
+                                      ,init: init
+                                      ,effective_update: effective_update
+                                      ,view: view
+                                      ,Model: Model};
+};Elm.StartApp = Elm.StartApp || {};
+Elm.StartApp.make = function (_elm) {
+   "use strict";
+   _elm.StartApp = _elm.StartApp || {};
+   if (_elm.StartApp.values) return _elm.StartApp.values;
+   var _U = Elm.Native.Utils.make(_elm),
+   $Basics = Elm.Basics.make(_elm),
+   $Debug = Elm.Debug.make(_elm),
+   $Effects = Elm.Effects.make(_elm),
+   $Html = Elm.Html.make(_elm),
+   $List = Elm.List.make(_elm),
+   $Maybe = Elm.Maybe.make(_elm),
+   $Result = Elm.Result.make(_elm),
+   $Signal = Elm.Signal.make(_elm),
+   $Task = Elm.Task.make(_elm);
+   var _op = {};
+   var start = function (config) {
+      var updateStep = F2(function (action,_p0) {
+         var _p1 = _p0;
+         var _p2 = A2(config.update,action,_p1._0);
+         var newModel = _p2._0;
+         var additionalEffects = _p2._1;
+         return {ctor: "_Tuple2"
+                ,_0: newModel
+                ,_1: $Effects.batch(_U.list([_p1._1,additionalEffects]))};
+      });
+      var update = F2(function (actions,_p3) {
+         var _p4 = _p3;
+         return A3($List.foldl,
+         updateStep,
+         {ctor: "_Tuple2",_0: _p4._0,_1: $Effects.none},
+         actions);
+      });
+      var messages = $Signal.mailbox(_U.list([]));
+      var singleton = function (action) {
+         return _U.list([action]);
+      };
+      var address = A2($Signal.forwardTo,messages.address,singleton);
+      var inputs = $Signal.mergeMany(A2($List._op["::"],
+      messages.signal,
+      A2($List.map,$Signal.map(singleton),config.inputs)));
+      var effectsAndModel = A3($Signal.foldp,
+      update,
+      config.init,
+      inputs);
+      var model = A2($Signal.map,$Basics.fst,effectsAndModel);
+      return {html: A2($Signal.map,config.view(address),model)
+             ,model: model
+             ,tasks: A2($Signal.map,
+             function (_p5) {
+                return A2($Effects.toTask,messages.address,$Basics.snd(_p5));
+             },
+             effectsAndModel)};
+   };
+   var App = F3(function (a,b,c) {
+      return {html: a,model: b,tasks: c};
    });
-   return _elm.Main.values = {_op: _op
-                             ,Model: Model
-                             ,Position: Position
-                             ,initial_state: initial_state
-                             ,ClickedRefresh: ClickedRefresh
-                             ,Reset: Reset
-                             ,ClickedBall: ClickedBall
-                             ,update: update
-                             ,resetBallLocation: resetBallLocation
-                             ,resetPositions: resetPositions
-                             ,shift_ball_left: shift_ball_left
-                             ,view: view
-                             ,renderGUI: renderGUI
-                             ,target_area: target_area
-                             ,cr30: cr30
-                             ,ten_circles: ten_circles
-                             ,actions: actions
-                             ,model: model
-                             ,main: main};
+   var Config = F4(function (a,b,c,d) {
+      return {init: a,update: b,view: c,inputs: d};
+   });
+   return _elm.StartApp.values = {_op: _op
+                                 ,start: start
+                                 ,Config: Config
+                                 ,App: App};
+};Elm.Main = Elm.Main || {};
+Elm.Main.make = function (_elm) {
+   "use strict";
+   _elm.Main = _elm.Main || {};
+   if (_elm.Main.values) return _elm.Main.values;
+   var _U = Elm.Native.Utils.make(_elm),
+   $AbacusTrainer = Elm.AbacusTrainer.make(_elm),
+   $Basics = Elm.Basics.make(_elm),
+   $Debug = Elm.Debug.make(_elm),
+   $Effects = Elm.Effects.make(_elm),
+   $List = Elm.List.make(_elm),
+   $Maybe = Elm.Maybe.make(_elm),
+   $Result = Elm.Result.make(_elm),
+   $Signal = Elm.Signal.make(_elm),
+   $StartApp = Elm.StartApp.make(_elm),
+   $Task = Elm.Task.make(_elm);
+   var _op = {};
+   var app = $StartApp.start({init: $AbacusTrainer.init
+                             ,update: $AbacusTrainer.effective_update
+                             ,view: $AbacusTrainer.view
+                             ,inputs: _U.list([])});
+   var main = app.html;
+   var tasks = Elm.Native.Task.make(_elm).performSignal("tasks",
+   app.tasks);
+   return _elm.Main.values = {_op: _op,app: app,main: main};
 };</script></head><body><script type="text/javascript">Elm.fullscreen(Elm.Main)</script></body></html>

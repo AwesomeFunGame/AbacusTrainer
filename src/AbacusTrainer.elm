@@ -1,4 +1,4 @@
-module AbacusTrainer (Model, Action, init, effective_update, view) where
+module AbacusTrainer (Model, Action, init, effective_update, view, window_size ) where
 
 import Html exposing (div, li, ol, Html)
 import Html.Events exposing (onClick)
@@ -40,14 +40,14 @@ type alias Model =
   , animationState : AnimationState
   }
 
-initial_state: Model
-initial_state =
+initial_state : Int -> Model
+initial_state externalSeed =
   { window_height = 600
   , window_width  = 2400
   , user_choice   = 0
   , score = 0
   , rng   = int 0 9
-  , target_number_and_seed = (1,  initialSeed 314)
+  , target_number_and_seed = (1,  initialSeed externalSeed )
   , ball_locations    = resetPositions (List.repeat 10 {x = 0, y = 0})
   , correct_locations = resetPositions (List.repeat 10 {x = 0, y = 0})
   , needs_refresh  = False
@@ -57,9 +57,9 @@ initial_state =
   , animationState = Maybe.Nothing
   }
 
-init : ( Model, Effects Action)
-init =
-  ( initial_state
+init : Int -> ( Model, Effects Action)
+init externalSeed =
+  ( initial_state externalSeed
   , Effects.none
   )
 
@@ -108,9 +108,13 @@ update action current_state =
             { current_state
               | user_choice = (index +  1)
               , score = current_state.score - 1
+              , correct_locations = resetPositions current_state.ball_locations
             }
         else
-           current_state
+           { current_state
+              | user_choice = (index +  1)
+              , correct_locations = resetPositions current_state.ball_locations
+            }
     WindowSize ( w, h ) ->
            {current_state 
            | window_width  = w
@@ -235,6 +239,9 @@ view address_of_actions current_state =
             , li
                 []
                 [ Html.text  "And they get bigger when you make mistakes." ]
+            , li
+                []
+                [ Html.text  ( ( toString  w ) ++ " X " ++ ( toString h ) ) ]
             ]
         ]
    --, div[ Html.Events.onClick address Reset ] [ Html.text (toString current_state ) ]
@@ -305,7 +312,9 @@ score_area address_of_actions (w, h) current_state =
       , text'
           [ x "550"
           , y "160"
-          , fontSize "55" ]
+          , fontSize "55" 
+          , fill "red"
+          ]
           [ text (toString ( current_state.score)) ]
       ]
 
@@ -378,8 +387,13 @@ ten_circles address_of_actions current_state =
 
 --WIRING
 
-model : Signal Action -> Signal Model
-model actions = Signal.foldp update initial_state actions
+
+window_size : Signal Action
+window_size =
+    Signal.map WindowSize  Window.dimensions 
+
+--model : Signal Action -> Signal Model
+--model actions = Signal.foldp update ( initial_state 314 ) actions
 
 --main: Signal Html
 --main =  Signal.map (view actions.address) (model ( Signal.merge actions.signal ( Signal.map WindowSize  Window.dimensions ) ) )

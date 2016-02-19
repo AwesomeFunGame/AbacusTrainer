@@ -17,8 +17,8 @@ if (status != '') {
 }
 var pagesBranch = 'gh-pages';
 exec('git checkout ' + pagesBranch);
-cp('-f', path.join( directories.target, 'index.html') , directories.project);
-exec('git add index.html');
+cp('-f', path.join( directories.target, 'elm.js') , directories.project);
+exec('git add elm.js');
 exec('git commit -am "publish"');
 exec('git push origin ' + pagesBranch);
 exec('git checkout ' + masterBranch);

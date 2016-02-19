@@ -4,9 +4,9 @@ require('shelljs/global');
 var directories = require('./directories.js');
 var path = require('path');
 
-rm('-f',   path.join( directories.target, 'elm.js') );
+rm('-Rf', directories.target ); // path.join( directories.target, 'elm.js') );
 
-// cp('-R', directories.site, directories.target);
+cp('-R', directories.site, directories.target);
 
 cd(directories.build);
 

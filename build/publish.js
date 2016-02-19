@@ -17,10 +17,11 @@ if (status != '') {
 }
 var pagesBranch = 'gh-pages';
 exec('git checkout ' + pagesBranch);
-cp('-f', path.join( directories.site, 'index.html') , directories.project);
-cp('-f', path.join( directories.target, 'elm.js') , directories.project);
-exec('git add index.html');
-exec('git add elm.js');
+// cp('-f', path.join( directories.site, 'index.html') , directories.project);
+// cp('-f', path.join( directories.target, 'elm.js') , directories.project);
+cp( '-Rf', directories.target, directories.project );
+
+exec('git add -A');
 exec('git commit -am "publish"');
 exec('git push origin ' + pagesBranch);
 exec('git checkout ' + masterBranch);

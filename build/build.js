@@ -6,8 +6,10 @@ var path = require('path');
 
 rm('-Rf', directories.target ); // path.join( directories.target, 'elm.js') );
 
-cp('-R', directories.site, directories.target);
+
 
 cd(directories.build);
 
-exec('elm-make ' + directories.source + '/Main.elm' + ' --output ' + directories.target + '/elm.js' );
+exec('elm-make ' + directories.source + '/Main.elm' + ' --output ' + path.join( directories.target, 'elm.js')  );
+
+cp('-f', path.join( directories.site, 'index.html' ), directories.target );
